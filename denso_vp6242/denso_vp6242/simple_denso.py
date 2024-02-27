@@ -5,8 +5,8 @@ from std_msgs.msg import Float64MultiArray
 from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Pose
 
-SIMULATION = True
-Ts = 0.05
+from time import sleep
+import numpy as np 
 
 class DensoControl(Node):
     def __init__(self):
@@ -22,35 +22,24 @@ class DensoControl(Node):
 
         # Creating publisher
         self.publisher_ = self.create_publisher(Float64MultiArray, 'denso/target_positions', 10)
-        self.timer = self.create_timer(Ts, self.control_loop)
 
 
     def fb_joints(self, msg):
         self.joint_states = msg
+        self.get_logger().debug('Received : "%s"' % msg.position)
 
     def fb_pose(self, msg):
         self.pose = msg
+        self.get_logger().debug('Received : "%s"' % msg.position)
     
-    def control_loop(self):
-        # Leitura do estado atual do robo
-
-        # Usar variaveis self.joint_states e self.pose
-        # Voce pode procurar na internet como seria a estrutura de mensagens
-        # do tipo sensor_msgs/JointState e geometry_msgs/Pose
-        
-        # Computando acao de controle
-        setpoint = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-
-        ##### Escrever acao de controle aqui
-
+    def publish_setpoint(self, q):
         # Criando mensagem
         msg = Float64MultiArray()
-        msg.data = setpoint
+        msg.data = q
         
         # Mandando sinal de atuação no robo
         self.publisher_.publish(msg)
         self.get_logger().info('Publishing: "%s"' % msg.data)
-
 
 
 
@@ -59,8 +48,31 @@ def main(args=None):
 
     denso_control = DensoControl()
 
-    rclpy.spin(denso_control)
+    # Enviando comando de posição
+    q_d = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    #q_d = np.array([np.pi/3, np.pi/3, -np.pi/10, -np.pi/6, np.pi/6, np.pi/3])
+    #q_d = np.array([-np.pi/3, np.pi/4, 3*np.pi/8, -np.pi/6, -3*np.pi/17, np.pi/10])
+    #q_d = np.array([-3*np.pi/4, -np.pi/4, np.pi/8, 7*np.pi/19, 0, 0])
+    #q_d = np.array([0, 0, -np.pi/9, 0, 0, 0])
+    denso_control.publish_setpoint(q_d.tolist())
 
+    # Recebendo denso joints e pose e esperando o manipulador chegar na posição desejada
+    rclpy.spin_once(denso_control)
+
+    q_c = np.array(denso_control.joint_states.position)
+    while (np.linalg.norm(q_c - q_d) > 1): # Esperando com uma tolerancia de 1 no erro de regime permanente
+        sleep(1)
+        rclpy.spin_once(denso_control)
+        q_c = np.array(denso_control.joint_states.position)
+    denso_control.get_logger().info("Robot is ready")
+
+    ### Insira o código aqui
+    #
+    #
+    #
+    #
+    ###
+        
     denso_control.destroy_node()
     rclpy.shutdown()
 
