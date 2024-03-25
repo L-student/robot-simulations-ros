@@ -6,6 +6,8 @@
   <description>Denso VP-6242 ROS packages for robotics class</description>
   <maintainer email="glauber@ic.ufal.br">glauberrleite</maintainer>
   <license>MIT</license>
+  
+  <depend>rclpy</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
